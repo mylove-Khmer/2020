@@ -22,8 +22,8 @@
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-2">ជ្រើសរើសប្រភេទអាខោន៖</label>
                     <select id="productSelect" class="w-full border border-slate-300 rounded-lg p-3 text-slate-700 focus:outline-none focus:border-blue-500">
-                        <option value="1.50" data-name="Facebook Via Cambodia + 2FA">Facebook Via Cambodia + 2FA ($1.50)</option>
                         <option value="0.50" data-name="Facebook Clone ខ្មែរ">Facebook Clone ខ្មែរ ($0.50)</option>
+                        <option value="1.50" data-name="Facebook Via Cambodia + 2FA">Facebook Via Cambodia + 2FA ($1.50)</option>
                         <option value="2.00" data-name="Facebook Via USA + 2FA">Facebook Via USA + 2FA ($2.00)</option>
                     </select>
                 </div>
@@ -83,7 +83,10 @@
 
         async function requestQR() {
             const price = document.getElementById('productSelect').value;
-            currentOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+            currentOrderId = 'ORD' + Math.floor(100000 + Math.random() * 900000);
+
+            document.getElementById('btnPay').innerText = "កំពុងរៀបចំ QR Code...";
+            document.getElementById('btnPay').disabled = true;
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/create-khqr`, {
@@ -93,16 +96,24 @@
                 });
                 const data = await res.json();
 
-                if (data.success) {
+                if (data.success && data.qrString) {
                     document.getElementById('qrcode').innerHTML = "";
-                    new QRCode(document.getElementById("qrcode"), { text: data.qrString, width: 180, height: 180 });
+                    new QRCode(document.getElementById("qrcode"), { 
+                        text: data.qrString, 
+                        width: 190, 
+                        height: 190 
+                    });
                     document.getElementById('buyForm').classList.add('hidden');
                     document.getElementById('paymentSection').classList.remove('hidden');
                 } else {
                     alert("មានបញ្ហាក្នុងការបង្កើត QR Code!");
+                    document.getElementById('btnPay').disabled = false;
+                    document.getElementById('btnPay').innerText = "បន្តទៅការទូទាត់ (KHQR)";
                 }
             } catch (err) {
                 alert("មិនអាចភ្ជាប់ទៅកាន់ Server បានទេ!");
+                document.getElementById('btnPay').disabled = false;
+                document.getElementById('btnPay').innerText = "បន្តទៅការទូទាត់ (KHQR)";
             }
         }
 
