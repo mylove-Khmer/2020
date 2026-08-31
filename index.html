@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ហាងលក់អាខោន Facebook ស្វ័យប្រវត្តិ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen py-10 px-4">
+
+    <div class="max-w-lg mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        <!-- Header -->
+        <div class="bg-blue-600 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold tracking-wide">ហាងលក់អាខោន Facebook</h1>
+            <p class="text-blue-100 text-sm mt-1">ទិញរហ័ស ទូទាត់តាម Bakong KHQR ងាយស្រួល</p>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <!-- ជ្រើសរើសប្រភេទអាខោន -->
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">ជ្រើសរើសប្រភេទអាខោន៖</label>
+                <select id="productSelect" onchange="updateTotal()" class="w-full border border-slate-300 rounded-lg p-3 text-slate-700 focus:outline-none focus:border-blue-500">
+                    <option value="1.50" data-name="Facebook Via Cambodia + 2FA">Facebook Via Cambodia + 2FA ($1.50)</option>
+                    <option value="0.50" data-name="Facebook Clone ស្រុកខ្មែរ">Facebook Clone ស្រុកខ្មែរ ($0.50)</option>
+                    <option value="2.00" data-name="Facebook Via USA + 2FA">Facebook Via USA + 2FA ($2.00)</option>
+                    <option value="5.00" data-name="Facebook Business Manager (BM50)">Facebook BM50 ($5.00)</option>
+                </select>
+            </div>
+
+            <!-- ចំនួន និងទំនាក់ទំនង -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">ចំនួនអាខោន៖</label>
+                    <input type="number" id="qty" value="1" min="1" oninput="updateTotal()" class="w-full border border-slate-300 rounded-lg p-3 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">តម្លៃសរុប ($)៖</label>
+                    <input type="text" id="totalDisplay" value="$1.50" readonly class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 font-bold text-green-600">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Telegram Username ឬលេខទូរស័ព្ទ៖</label>
+                <input type="text" id="contact" placeholder="ឧទាហរណ៍៖ @username" class="w-full border border-slate-300 rounded-lg p-3 focus:outline-none focus:border-blue-500">
+            </div>
+
+            <!-- ប៊ូតុងទូទាត់ -->
+            <button type="button" id="btnPay" onclick="requestQR()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+                បន្តទៅការទូទាត់ (KHQR)
+            </button>
+
+            <!-- ផ្ទាំងបង្ហាញ QR Code & Upload Slip -->
+            <div id="paymentSection" class="hidden border-t border-slate-200 pt-6 text-center space-y-4">
+                <div class="inline-block p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <p class="text-xs text-slate-500 font-semibold mb-2">ស្កេនទូទាត់តាមកម្មវិធីធនាគារណាក៏បាន</p>
+                    <div id="qrcode" class="flex justify-center"></div>
+                    <p class="text-xs text-slate-400 mt-2 font-mono">SAMNANG MON (Bakong)</p>
+                </div>
+
+                <div class="text-left">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Upload រូបភាពវិក្កយបត្រ (Slip)៖</label>
+                    <input type="file" id="slipInput" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+
+                <button type="button" id="btnSubmit" onclick="submitOrder()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+                    បញ្ជាក់ការទូទាត់រួចរាល់
+                </button>
+            </div>
+
+            <div id="statusMessage" class="hidden p-4 rounded-lg text-sm text-center"></div>
+        </div>
+    </div>
+
+    <script>
+        // កំណត់ URL របស់ Backend API (ប្តូរទៅ URL ពិតពេល Deploy លើ Cloud)
+        const BACKEND_URL = 'http://localhost:5000';
+        let currentOrderId = '';
+
+        function updateTotal() {
+            const price = parseFloat(document.getElementById('productSelect').value);
+            const qty = parseInt(document.getElementById('qty').value) || 1;
+            const total = (price * qty).toFixed(2);
+            document.getElementById('totalDisplay').value = `$${total}`;
+        }
+
+        async function requestQR() {
+            const contact = document.getElementById('contact').value.trim();
+            if (!contact) {
+                alert("សូមបញ្ចូល Telegram ឬលេខទូរស័ព្ទរបស់អ្នកជាមុនសិន!");
+                return;
+            }
+
+            const price = parseFloat(document.getElementById('productSelect').value);
+            const qty = parseInt(document.getElementById('qty').value) || 1;
+            const total = (price * qty).toFixed(2);
+            currentOrderId = Math.floor(100000 + Math.random() * 900000);
+
+            document.getElementById('btnPay').innerText = "កំពុងបង្កើត KHQR...";
+            document.getElementById('btnPay').disabled = true;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/create-khqr`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: total, orderId: currentOrderId })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('qrcode').innerHTML = "";
+                    new QRCode(document.getElementById("qrcode"), {
+                        text: data.qrString,
+                        width: 200,
+                        height: 200
+                    });
+
+                    document.getElementById('paymentSection').classList.remove('hidden');
+                    document.getElementById('btnPay').classList.add('hidden');
+                } else {
+                    alert("មានបញ្ហាក្នុងការបង្កើត QR Code!");
+                    document.getElementById('btnPay').disabled = false;
+                    document.getElementById('btnPay').innerText = "បន្តទៅការទូទាត់ (KHQR)";
+                }
+            } catch (err) {
+                alert("មិនអាចភ្ជាប់ទៅកាន់ Server បានទេ!");
+                document.getElementById('btnPay').disabled = false;
+                document.getElementById('btnPay').innerText = "បន្តទៅការទូទាត់ (KHQR)";
+            }
+        }
+
+        async function submitOrder() {
+            const slipInput = document.getElementById('slipInput');
+            if (!slipInput.files[0]) {
+                alert("សូមជ្រើសរើសរូបភាពវិក្កយបត្រ (Slip) របស់អ្នក!");
+                return;
+            }
+
+            const selectEl = document.getElementById('productSelect');
+            const productName = selectEl.options[selectEl.selectedIndex].getAttribute('data-name');
+            const qty = document.getElementById('qty').value;
+            const price = parseFloat(selectEl.value);
+            const total = (price * qty).toFixed(2);
+            const contact = document.getElementById('contact').value;
+
+            const formData = new FormData();
+            formData.append('orderId', currentOrderId);
+            formData.append('productName', productName);
+            formData.append('quantity', qty);
+            formData.append('totalAmount', total);
+            formData.append('contact', contact);
+            formData.append('slip', slipInput.files[0]);
+
+            document.getElementById('btnSubmit').innerText = "កំពុងបញ្ជូនទិន្នន័យ...";
+            document.getElementById('btnSubmit').disabled = true;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/submit-order`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                const statusBox = document.getElementById('statusMessage');
+                statusBox.classList.remove('hidden');
+
+                if (result.success) {
+                    statusBox.className = "p-4 rounded-lg text-sm text-center bg-green-100 text-green-700 font-semibold";
+                    statusBox.innerText = result.message;
+                    document.getElementById('paymentSection').classList.add('hidden');
+                } else {
+                    statusBox.className = "p-4 rounded-lg text-sm text-center bg-red-100 text-red-700 font-semibold";
+                    statusBox.innerText = result.message;
+                    document.getElementById('btnSubmit').disabled = false;
+                    document.getElementById('btnSubmit').innerText = "បញ្ជាក់ការទូទាត់រួចរាល់";
+                }
+            } catch (err) {
+                alert("មានបញ្ហាក្នុងការផ្ញើទិន្នន័យ សូមព្យាយាមម្តងទៀត!");
+                document.getElementById('btnSubmit').disabled = false;
+                document.getElementById('btnSubmit').innerText = "បញ្ជាក់ការទូទាត់រួចរាល់";
+            }
+        }
+    </script>
+</body>
+</html>
