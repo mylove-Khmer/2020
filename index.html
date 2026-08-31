@@ -48,11 +48,11 @@
 
                     <!-- បង្ហាញតម្លៃជាដុល្លារ ($) -->
                     <div class="mt-3 bg-blue-50 py-2 px-4 rounded-lg border border-blue-200">
-                        <span class="text-xs text-slate-500 font-medium">ចំនួនទឹកប្រាក់ត្រូវបង់៖</span>
+                        <span class="text-xs text-slate-500 font-medium">ចំនួនទឹកប្រាក់ត្រូវផ្ទេរ៖</span>
                         <p id="qrAmountDisplay" class="text-xl font-extrabold text-blue-600">$0.00 USD</p>
                     </div>
 
-                    <p class="text-xs text-slate-400 mt-2 font-mono">SAMNANG MON</p>
+                    <p class="text-xs text-slate-400 mt-2 font-mono">SAMNANG MON (Bakong)</p>
                 </div>
 
                 <div class="text-left">
@@ -94,6 +94,10 @@
             currentPrice = document.getElementById('productSelect').value;
             currentOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
 
+            const btnPay = document.getElementById('btnPay');
+            btnPay.innerText = "កំពុងរៀបចំ QR Code...";
+            btnPay.disabled = true;
+
             try {
                 const res = await fetch(`${BACKEND_URL}/api/create-khqr`, {
                     method: 'POST',
@@ -104,18 +108,25 @@
 
                 if (data.success) {
                     document.getElementById('qrcode').innerHTML = "";
-                    new QRCode(document.getElementById("qrcode"), { text: data.qrString, width: 180, height: 180 });
+                    new QRCode(document.getElementById("qrcode"), { 
+                        text: data.qrString, 
+                        width: 190, 
+                        height: 190 
+                    });
                     
-                    // បង្ហាញចំនួនទឹកប្រាក់ជាដុល្លារ
                     document.getElementById('qrAmountDisplay').innerText = `$${parseFloat(currentPrice).toFixed(2)} USD`;
 
                     document.getElementById('buyForm').classList.add('hidden');
                     document.getElementById('paymentSection').classList.remove('hidden');
                 } else {
-                    alert("មានបញ្ហាក្នុងការបង្កើត QR Code!");
+                    alert("មានបញ្ហាក្នុងការបង្កើត QR Code: " + (data.message || ""));
+                    btnPay.innerText = "បន្តទៅការទូទាត់ (KHQR)";
+                    btnPay.disabled = false;
                 }
             } catch (err) {
                 alert("មិនអាចភ្ជាប់ទៅកាន់ Server បានទេ!");
+                btnPay.innerText = "បន្តទៅការទូទាត់ (KHQR)";
+                btnPay.disabled = false;
             }
         }
 
