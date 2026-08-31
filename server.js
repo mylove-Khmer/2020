@@ -52,19 +52,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត KHQR ត្រឹមត្រូវ (USD)
+// API បង្កើត KHQR ត្រឹមត្រូវតាមស្តង់ដារ Individual (មិន Error ដាច់ខាត)
 app.post('/api/create-khqr', (req, res) => {
     try {
         const { amount } = req.body;
         const khqr = new BakongKHQR();
 
+        // Parameter ៣ សុទ្ធ គ្មាន Parameter លើសដែលនាំឱ្យគាំង
         const individualInfo = new IndividualInfo(
             "mon_samnang@bkrt",
             "SAMNANG MON",
-            "Phnom Penh",
-            {
-                currency: "USD"
-            }
+            "Phnom Penh"
         );
 
         const qrResponse = khqr.generateIndividual(individualInfo);
@@ -76,10 +74,11 @@ app.post('/api/create-khqr', (req, res) => {
                 amount: parseFloat(amount).toFixed(2)
             });
         } else {
+            console.error("Bakong generation returned null:", qrResponse);
             return res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR Code បានទេ" });
         }
     } catch (error) {
-        console.error("KHQR Error:", error);
+        console.error("KHQR Error Details:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 });
