@@ -18,10 +18,24 @@ const upload = multer({ dest: 'uploads/' });
 
 let accountStock = [];
 let orders = {};
+let users = {};
 
 const BOT_TOKEN = '8917816041:AAEAxBlMIg6auHX6WrcO_HudfFLTQT7sLXQ';
 const ADMIN_CHAT_ID = '5915683588';
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+// បើក Bot ជាមួយ Error Handler ការពារកុំឱ្យគាំង Server
+const bot = new TelegramBot(BOT_TOKEN, { 
+    polling: {
+        autoStart: true,
+        params: { timeout: 10 }
+    } 
+});
+
+// ចាប់កំហុស Polling (Error 409) ការពារកុំឱ្យគាំង API
+bot.on('polling_error', (error) => {
+    // បង្ហាញត្រឹម log ធម្មតា មិនឱ្យប៉ះពាល់ដល់ Express Server ឡើយ
+    console.log('[Bot Polling Notice]:', error.message);
+});
 
 // --- គ្រប់គ្រងស្តុកតាម TELEGRAM ---
 bot.onText(/\/add([\s\S]*)/, async (msg, match) => {
@@ -52,13 +66,43 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត KHQR ត្រឹមត្រូវតាមស្តង់ដារ Individual (មិន Error ដាច់ខាត)
+// API ចុះឈ្មោះ (Register)
+app.post('/api/register', (req, res) => {
+    try {
+        const { username, password, phone } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: "សូមបំពេញព័ត៌មានឱ្យបានគ្រប់គ្រាន់!" });
+        }
+        if (users[username]) {
+            return res.status(400).json({ success: false, message: "ឈ្មោះគណនីនេះមានរួចហើយ!" });
+        }
+        users[username] = { password, phone: phone || '' };
+        return res.json({ success: true, message: "ចុះឈ្មោះជោគជ័យ!" });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+});
+
+// API ចូលប្រើ (Login)
+app.post('/api/login', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const user = users[username];
+        if (!user || user.password !== password) {
+            return res.status(400).json({ success: false, message: "ឈ្មោះគណនី ឬលេខសម្ងាត់មិនត្រឹមត្រូវ!" });
+        }
+        return res.json({ success: true, username: username });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+});
+
+// API បង្កើត KHQR
 app.post('/api/create-khqr', (req, res) => {
     try {
         const { amount } = req.body;
         const khqr = new BakongKHQR();
 
-        // Parameter ៣ សុទ្ធ គ្មាន Parameter លើសដែលនាំឱ្យគាំង
         const individualInfo = new IndividualInfo(
             "mon_samnang@bkrt",
             "SAMNANG MON",
@@ -74,11 +118,9 @@ app.post('/api/create-khqr', (req, res) => {
                 amount: parseFloat(amount).toFixed(2)
             });
         } else {
-            console.error("Bakong generation returned null:", qrResponse);
             return res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR Code បានទេ" });
         }
     } catch (error) {
-        console.error("KHQR Error Details:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -86,7 +128,7 @@ app.post('/api/create-khqr', (req, res) => {
 // API ទទួល Slip និង Order
 app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
     try {
-        const { productName, quantity, totalAmount, orderId } = req.body;
+        const { productName, quantity, totalAmount, orderId, buyerUsername } = req.body;
         const slipFile = req.file;
 
         const qtyNumber = parseInt(quantity) || 1;
@@ -95,16 +137,18 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
             status: 'pending',
             account: null,
             productName,
-            quantity: qtyNumber
+            quantity: qtyNumber,
+            buyer: buyerUsername || 'អនាមិក'
         };
 
         const caption = `🔔 *មានការបញ្ជាទិញថ្មី!*\n\n` +
+                        `👤 *អ្នកទិញ:* ${buyerUsername || 'អនាមិក'}\n` +
                         `🆔 *វិក្កយបត្រ:* #${orderId}\n` +
                         `📦 *ប្រភេទ:* ${productName}\n` +
                         `🔢 *ចំនួន:* ${qtyNumber} អាខោន\n` +
                         `💰 *តម្លៃសរុប:* $${totalAmount} USD\n` +
                         `📊 *ស្តុកនៅសល់:* ${accountStock.length} អាខោន\n\n` +
-                        `សូមពិនិត្យវិក្កយបត្រខាងក្រោម ដើម្បី Approve ឱ្យអាខោនធ្លាក់លើអេក្រង់ភ្ញៀវ៖`;
+                        `សូមពិនិត្យវិក្កយបត្រខាងក្រោម ដើម្បី Approve៖`;
 
         if (slipFile) {
             await bot.sendPhoto(ADMIN_CHAT_ID, slipFile.path, {
@@ -124,7 +168,6 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        console.error(error);
         res.status(500).json({ success: false });
     }
 });
@@ -150,7 +193,7 @@ bot.on('callback_query', async (query) => {
                 order.account = deliveredAccounts.join('\n');
 
                 await bot.answerCallbackQuery(query.id, { text: `Order #${id} ត្រូវបាន Approve!` });
-                await bot.sendMessage(ADMIN_CHAT_ID, `✅ Order #${id} បានទម្លាក់ចំនួន *${neededQty}* អាខោនទៅភ្ញៀវរួចរាល់!\n📦 ស្តុកនៅសល់៖ *${accountStock.length}* អាខោន`, { parse_mode: 'Markdown' });
+                await bot.sendMessage(ADMIN_CHAT_ID, `✅ Order #${id} (របស់អ្នកទិញ: ${order.buyer}) បានទម្លាក់ចំនួន *${neededQty}* អាខោនរួចរាល់!\n📦 ស្តុកនៅសល់៖ *${accountStock.length}* អាខោន`, { parse_mode: 'Markdown' });
             } else {
                 await bot.answerCallbackQuery(query.id, { text: `មិនគ្រប់ស្តុកទេ!` });
                 await bot.sendMessage(ADMIN_CHAT_ID, `⚠️ Order #${id} ត្រូវការ *${neededQty}* អាខោន តែស្តុកនៅសល់ត្រឹម *${accountStock.length}* អាខោនប៉ុណ្ណោះ! សូមផ្ញើ /add បន្ថែម។`, { parse_mode: 'Markdown' });
