@@ -14,7 +14,6 @@ const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
-// បង្កើត folder ផ្ទុក media សម្រាប់ Chat លើ Web
 const mediaDir = path.join(__dirname, 'public_media');
 if (!fs.existsSync(mediaDir)) {
     fs.mkdirSync(mediaDir);
@@ -26,9 +25,9 @@ const chatUpload = multer({ dest: 'public_media/' });
 
 let accountStock = [];
 let orders = {};
-let users = {};
-let chatMessages = {}; // { username: [ { sender, type, content, timestamp } ] }
-let userChatMapping = {}; // { telegram_message_id: username }
+let users = {}; // { username: { password, email, phone, createdAt } }
+let chatMessages = {}; 
+let userChatMapping = {}; 
 
 const BOT_TOKEN = '8917816041:AAEAxBlMIg6auHX6WrcO_HudfFLTQT7sLXQ';
 const ADMIN_CHAT_ID = '5915683588';
@@ -61,10 +60,35 @@ bot.onText(/\/stock/, async (msg) => {
     await bot.sendMessage(ADMIN_CHAT_ID, `📦 ស្តុកអាខោននៅសល់សរុប៖ *${accountStock.length}* អាខោន`, { parse_mode: 'Markdown' });
 });
 
+// Command សម្រាប់ Admin មើលចំនួន និងបញ្ជីអ្នកចុះឈ្មោះទាំងអស់
+bot.onText(/\/users/, async (msg) => {
+    if (msg.chat.id.toString() !== ADMIN_CHAT_ID) return;
+    
+    const userList = Object.keys(users);
+    const totalCount = userList.length;
+
+    if (totalCount === 0) {
+        return bot.sendMessage(ADMIN_CHAT_ID, "📊 មិនទាន់មានអ្នកចុះឈ្មោះគណនីនៅឡើយទេ។");
+    }
+
+    let report = `👥 *ស្ថិតិអ្នកចុះឈ្មោះចូលប្រើប្រាស់*\n`;
+    report += `📈 *សរុបទាំងអស់:* \`${totalCount}\` នាក់\n\n`;
+
+    userList.forEach((u, index) => {
+        const item = users[u];
+        report += `*${index + 1}. គណនី:* \`${u}\`\n`;
+        report += `   📧 Email: \`${item.email || 'មិនមាន'}\`\n`;
+        report += `   📱 Phone: \`${item.phone || 'មិនមាន'}\`\n`;
+        report += `   🕒 កាលបរិច្ឆេទ: ${item.createdAt || 'N/A'}\n\n`;
+    });
+
+    await bot.sendMessage(ADMIN_CHAT_ID, report, { parse_mode: 'Markdown' });
+});
+
 // --- ADMIN REPLY TO CUSTOMER VIA TELEGRAM ---
 bot.on('message', async (msg) => {
     if (msg.chat.id.toString() !== ADMIN_CHAT_ID) return;
-    if (!msg.reply_to_message) return; // ឆ្លើយតបតែពេល Admin ចុច Reply ប៉ុណ្ណោះ
+    if (!msg.reply_to_message) return;
 
     const replyTargetId = msg.reply_to_message.message_id;
     const customerUser = userChatMapping[replyTargetId];
@@ -72,46 +96,41 @@ bot.on('message', async (msg) => {
 
     if (!chatMessages[customerUser]) chatMessages[customerUser] = [];
 
-    // ករណី Admin ផ្ញើ Text
+    const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     if (msg.text) {
         chatMessages[customerUser].push({
             sender: 'admin',
             type: 'text',
             content: msg.text,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: timeNow
         });
-    }
-    // ករណី Admin ផ្ញើ Voice/Audio
-    else if (msg.voice || msg.audio) {
+    } else if (msg.voice || msg.audio) {
         const fileId = msg.voice ? msg.voice.file_id : msg.audio.file_id;
         const link = await bot.getFileLink(fileId);
         chatMessages[customerUser].push({
             sender: 'admin',
             type: 'audio',
             content: link,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: timeNow
         });
-    }
-    // ករណី Admin ផ្ញើ រូបភាព Photo
-    else if (msg.photo) {
+    } else if (msg.photo) {
         const fileId = msg.photo[msg.photo.length - 1].file_id;
         const link = await bot.getFileLink(fileId);
         chatMessages[customerUser].push({
             sender: 'admin',
             type: 'image',
             content: link,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: timeNow
         });
-    }
-    // ករណី Admin ផ្ញើ វីដេអូ Video
-    else if (msg.video) {
+    } else if (msg.video) {
         const fileId = msg.video.file_id;
         const link = await bot.getFileLink(fileId);
         chatMessages[customerUser].push({
             sender: 'admin',
             type: 'video',
             content: link,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: timeNow
         });
     }
 });
@@ -121,28 +140,66 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API ចុះឈ្មោះ & ចូលប្រើ
-app.post('/api/register', (req, res) => {
+// API ចុះឈ្មោះ (Register) រួមមាន Username, Password, Email, Phone
+app.post('/api/register', async (req, res) => {
     try {
-        const { username, password, phone } = req.body;
-        if (!username || !password) return res.status(400).json({ success: false, message: "សូមបំពេញព័ត៌មានឱ្យគ្រប់គ្រាន់!" });
-        if (users[username]) return res.status(400).json({ success: false, message: "ឈ្មោះគណនីនេះមានរួចហើយ!" });
-        users[username] = { password, phone: phone || '' };
+        const { username, password, email, phone } = req.body;
+        if (!username || !password || !email || !phone) {
+            return res.status(400).json({ success: false, message: "សូមបំពេញព័ត៌មាន (ឈ្មោះ, អ៊ីមែល, លេខទូរស័ព្ទ, លេខសម្ងាត់) ឱ្យបានគ្រប់គ្រាន់!" });
+        }
+        if (users[username]) {
+            return res.status(400).json({ success: false, message: "ឈ្មោះគណនីនេះមានរួចហើយ!" });
+        }
+
+        const dateStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' });
+        users[username] = { 
+            password, 
+            email: email.trim(), 
+            phone: phone.trim(),
+            createdAt: dateStr
+        };
+
+        // ផ្ញើសារប្រាប់ Admin លើ Telegram ភ្លាមៗរាល់ពេលមានអ្នកចុះឈ្មោះថ្មី
+        const totalNow = Object.keys(users).length;
+        bot.sendMessage(
+            ADMIN_CHAT_ID,
+            `🎉 *មានសមាជិកថ្មីទើបនឹងចុះឈ្មោះ!*\n\n` +
+            `👤 *Username:* \`${username}\`\n` +
+            `📧 *Email:* \`${email}\`\n` +
+            `📱 *Phone:* \`${phone}\`\n` +
+            `👥 *សមាជិកសរុបបច្ចុប្បន្ន:* \`${totalNow}\` នាក់`,
+            { parse_mode: 'Markdown' }
+        ).catch(() => {});
+
         return res.json({ success: true, message: "ចុះឈ្មោះជោគជ័យ!" });
     } catch (err) {
         return res.status(500).json({ success: false, message: "Server Error" });
     }
 });
 
+// API ចូលប្រើ (Login)
 app.post('/api/login', (req, res) => {
     try {
         const { username, password } = req.body;
         const user = users[username];
-        if (!user || user.password !== password) return res.status(400).json({ success: false, message: "ឈ្មោះគណនី ឬលេខសម្ងាត់មិនត្រឹមត្រូវ!" });
+        if (!user || user.password !== password) {
+            return res.status(400).json({ success: false, message: "ឈ្មោះគណនី ឬលេខសម្ងាត់មិនត្រឹមត្រូវ!" });
+        }
         return res.json({ success: true, username: username });
     } catch (err) {
         return res.status(500).json({ success: false, message: "Server Error" });
     }
+});
+
+// API សម្រាប់ទាញយកស្ថិតិអ្នកចុះឈ្មោះទៅបង្ហាញលើ Admin Web
+app.get('/api/admin/users', (req, res) => {
+    const list = Object.keys(users).map(u => ({
+        username: u,
+        email: users[u].email,
+        phone: users[u].phone,
+        createdAt: users[u].createdAt
+    }));
+    res.json({ success: true, total: list.length, users: list });
 });
 
 // API បង្កើត KHQR
@@ -173,10 +230,20 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
         const slipFile = req.file;
         const qtyNumber = parseInt(quantity) || 1;
 
-        orders[orderId] = { status: 'pending', account: null, productName, quantity: qtyNumber, buyer: buyerUsername || 'អនាមិក' };
+        const buyerInfo = users[buyerUsername] || {};
+
+        orders[orderId] = { 
+            status: 'pending', 
+            account: null, 
+            productName, 
+            quantity: qtyNumber, 
+            buyer: buyerUsername || 'អនាមិក' 
+        };
 
         const caption = `🔔 *មានការបញ្ជាទិញថ្មី!*\n\n` +
-                        `👤 *អ្នកទិញ:* ${buyerUsername || 'អនាមិក'}\n` +
+                        `👤 *អ្នកទិញ:* \`${buyerUsername || 'អនាមិក'}\`\n` +
+                        `📱 *លេខទូរស័ព្ទ:* \`${buyerInfo.phone || 'N/A'}\`\n` +
+                        `📧 *Email:* \`${buyerInfo.email || 'N/A'}\`\n` +
                         `🆔 *វិក្កយបត្រ:* #${orderId}\n` +
                         `📦 *ប្រភេទ:* ${productName}\n` +
                         `🔢 *ចំនួន:* ${qtyNumber} អាខោន\n` +
@@ -237,7 +304,7 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-// --- CHAT SYSTEM APIS (TEXT, VOICE, IMAGE, VIDEO) ---
+// --- CHAT SYSTEM APIS ---
 app.get('/api/chat/messages/:username', (req, res) => {
     const { username } = req.params;
     res.json({ success: true, messages: chatMessages[username] || [] });
@@ -256,7 +323,6 @@ app.post('/api/chat/send', chatUpload.single('file'), async (req, res) => {
         const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         if (file) {
-            // ប្តូរឈ្មោះឯកសារឱ្យមានកន្ទុយត្រឹមត្រូវ
             let ext = path.extname(file.originalname) || '';
             if (type === 'audio' && !ext) ext = '.webm';
             if (type === 'video' && !ext) ext = '.mp4';
@@ -292,7 +358,6 @@ app.post('/api/chat/send', chatUpload.single('file'), async (req, res) => {
             userChatMapping[telegramSentMsg.message_id] = username;
         }
 
-        // រក្សាទុកក្នុង Memory ដើម្បីបង្ហាញលើ Web
         chatMessages[username].push({
             sender: 'user',
             type: type || 'text',
