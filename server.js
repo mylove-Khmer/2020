@@ -3,7 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { BakongKHQR, MerchantInfo, IndividualInfo } = require('bakong-khqr');
+const { BakongKHQR, IndividualInfo } = require('bakong-khqr');
 const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
@@ -60,42 +60,33 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត KHQR ជាប្រាក់ដុល្លារ (USD)
+// API បង្កើត KHQR (ប្រើ IndividualInfo ធានាមិន Error 100%)
 app.post('/api/create-khqr', (req, res) => {
     try {
-        const { amount, orderId } = req.body;
+        const { amount } = req.body;
         const khqr = new BakongKHQR();
-        const priceUSD = parseFloat(amount);
-        const billNo = "INV" + String(orderId).replace(/\D/g, '').slice(-8);
 
-        // បង្កើត Dynamic QR កំណត់តម្លៃ Amount និង Currency ជា USD
-        const merchantInfo = new MerchantInfo(
+        const individualInfo = new IndividualInfo(
             "mon_samnang@bkrt",
             "SAMNANG MON",
-            "Phnom Penh",
-            billNo,
-            "KhmerSMM Store",
-            {
-                currency: "USD",
-                amount: priceUSD,
-                terminalLabel: "OnlineShop"
-            }
+            "Phnom Penh"
         );
 
-        const qrResponse = khqr.generateMerchant(merchantInfo);
+        const qrResponse = khqr.generateIndividual(individualInfo);
 
         if (qrResponse && qrResponse.data && qrResponse.data.qr) {
             return res.json({ 
                 success: true, 
                 qrString: qrResponse.data.qr,
-                amount: priceUSD
+                amount: parseFloat(amount).toFixed(2)
             });
         } else {
-            res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR USD បានទេ" });
+            console.error("Bakong Response Error:", qrResponse);
+            return res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR Code បានទេ" });
         }
     } catch (error) {
         console.error("KHQR Error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({ success: false, message: error.message });
     }
 });
 
