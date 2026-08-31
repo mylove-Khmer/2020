@@ -3,14 +3,14 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { BakongKHQR, IndividualInfo } = require('bakong-khqr');
+const { BakongKHQR, IndividualInfo, MerchantInfo } = require('bakong-khqr');
 const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// រៀបចំ Folder ផ្ទុក Slip បណ្ដោះអាសន្ន
+// រៀបចំ Folder សម្រាប់ផ្ទុកវិក្កយបត្របណ្ដោះអាសន្ន
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
@@ -21,14 +21,14 @@ const upload = multer({ dest: 'uploads/' });
 let accountStock = [];
 let orders = {};
 
-// Telegram Bot Configuration
+// កំណត់ Telegram Bot
 const BOT_TOKEN = '8917816041:AAEAxBlMIg6auHX6WrcO_HudfFLTQT7sLXQ';
 const ADMIN_CHAT_ID = '5915683588';
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // --- គ្រប់គ្រងស្តុកតាមរយៈ TELEGRAM BOT ---
 
-// ១. បន្ថែមអាខោនតាមពាក្យបញ្ជា /add
+// បន្ថែមអាខោនតាមពាក្យបញ្ជា /add
 bot.onText(/\/add([\s\S]*)/, async (msg, match) => {
     if (msg.chat.id.toString() !== ADMIN_CHAT_ID) return;
 
@@ -47,7 +47,7 @@ bot.onText(/\/add([\s\S]*)/, async (msg, match) => {
     );
 });
 
-// ២. ឆែកមើលចំនួនស្តុកតាមពាក្យបញ្ជា /stock
+// ឆែកមើលចំនួនស្តុកតាមពាក្យបញ្ជា /stock
 bot.onText(/\/stock/, async (msg) => {
     if (msg.chat.id.toString() !== ADMIN_CHAT_ID) return;
     await bot.sendMessage(ADMIN_CHAT_ID, `📦 ស្តុកអាខោននៅសល់សរុប៖ *${accountStock.length}* អាខោន`, { parse_mode: 'Markdown' });
@@ -55,39 +55,53 @@ bot.onText(/\/stock/, async (msg) => {
 
 // --- API SERVER ---
 
-// បង្ហាញ index.html ពេលភ្ញៀវចូល Web
+// បង្ហាញ index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត KHQR (បានកែសម្រួល Type ត្រឹមត្រូវ)
+// API បង្កើត KHQR (កែសម្រួលលែងឱ្យ Error)
 app.post('/api/create-khqr', (req, res) => {
     try {
         const { amount, orderId } = req.body;
+        const khqr = new BakongKHQR();
+        const cleanBillNo = "INV" + String(orderId).replace(/\D/g, '').slice(-8);
 
-        const optionalData = {
-            currency: "USD",
-            amount: Number(parseFloat(amount).toFixed(2)),
-            billNumber: String(orderId),
-            storeLabel: "KhmerSMM Store",
-            terminalLabel: "OnlineShop"
-        };
+        // សាកល្បងបង្កើតតាមទម្រង់ Merchant (មាន Amount & Currency)
+        try {
+            const merchantInfo = new MerchantInfo(
+                "mon_samnang@bkrt",
+                "SAMNANG MON",
+                "Phnom Penh",
+                cleanBillNo,
+                "KhmerSMM Store",
+                {
+                    currency: "USD",
+                    amount: parseFloat(amount),
+                    terminalLabel: "OnlineShop"
+                }
+            );
 
+            const qrResponse = khqr.generateMerchant(merchantInfo);
+            if (qrResponse && qrResponse.data && qrResponse.data.qr) {
+                return res.json({ success: true, qrString: qrResponse.data.qr });
+            }
+        } catch (merchantErr) {
+            console.log("Merchant KHQR fallback to Individual...");
+        }
+
+        // ប្រសិនបើបង្កើតតាម Merchant មិនចេញ វានឹងប្រើទម្រង់ Individual ដោយស្វ័យប្រវត្តិ
         const individualInfo = new IndividualInfo(
             "mon_samnang@bkrt",
             "SAMNANG MON",
-            "Phnom Penh",
-            optionalData
+            "Phnom Penh"
         );
-
-        const khqr = new BakongKHQR();
         const qrResponse = khqr.generateIndividual(individualInfo);
 
-        if (qrResponse && qrResponse.data) {
-            res.json({ success: true, qrString: qrResponse.data.qr });
+        if (qrResponse && qrResponse.data && qrResponse.data.qr) {
+            return res.json({ success: true, qrString: qrResponse.data.qr });
         } else {
-            console.error("Bakong error:", qrResponse);
-            res.status(400).json({ success: false, message: "Invalid KHQR Response" });
+            return res.status(400).json({ success: false, message: "Failed to generate QR" });
         }
     } catch (error) {
         console.error("KHQR Error:", error);
@@ -132,26 +146,26 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        console.error("Order error:", error);
+        console.error(error);
         res.status(500).json({ success: false });
     }
 });
 
-// API ឱ្យ Frontend ឆែកស្ថានភាព Order រៀងរាល់ ៣ វិនាទី
+// API ឱ្យ Frontend ឆែកមើលថាតើ Admin Approve ឬនៅ
 app.get('/api/check-order/:orderId', (req, res) => {
     const order = orders[req.params.orderId];
     if (!order) return res.status(404).json({ status: 'not_found' });
     res.json({ status: order.status, account: order.account });
 });
 
-// ចាប់សកម្មភាពពេល Admin ចុច Approve / Reject លើ Telegram
+// Telegram Action ពេលចុច Approve / Reject
 bot.on('callback_query', async (query) => {
     const data = query.data;
     if (data.startsWith('approve_')) {
         const id = data.replace('approve_', '');
 
         if (accountStock.length > 0) {
-            const deliveredAccount = accountStock.shift(); // កាត់ចេញពីស្តុក ១
+            const deliveredAccount = accountStock.shift(); // កាត់យក ១ ពីស្តុក
             if (orders[id]) {
                 orders[id].status = 'approved';
                 orders[id].account = deliveredAccount;
@@ -170,5 +184,5 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
