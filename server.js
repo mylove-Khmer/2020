@@ -3,7 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { BakongKHQR, IndividualInfo } = require('bakong-khqr');
+const { BakongKHQR, khqrData, IndividualInfo } = require('bakong-khqr');
 const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
@@ -52,52 +52,68 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត Original KHQR ផ្លូវការ (ធានាស្កេនបាន 100% គ្មាន Invalid)
+// API បង្កើត KHQR ជាប្រាក់ដុល្លារ USD ភ្ជាប់ Amount ស្វ័យប្រវត្តិតាមស្តង់ដារ Bakong
 app.post('/api/create-khqr', (req, res) => {
     try {
-        const { amount } = req.body;
-        const khqr = new BakongKHQR();
+        const { amount, orderId } = req.body;
+        const totalAmountUSD = parseFloat(amount);
 
+        const optionalData = {
+            currency: khqrData.currency.usd, // កំណត់ឱ្យចេញលុយដុល្លារ USD
+            amount: totalAmountUSD,          // ភ្ជាប់តម្លៃលុយដុល្លារដែលត្រូវបង់
+            billNumber: String(orderId),
+            storeLabel: "KhmerSMM Store",
+            terminalLabel: "OnlineShop"
+        };
+
+        // ទម្រង់ស្តង់ដារផ្លូវការរបស់ Bakong Individual KHQR
         const individualInfo = new IndividualInfo(
             "mon_samnang@bkrt",
+            khqrData.currency.usd,
             "SAMNANG MON",
-            "Phnom Penh"
+            "Phnom Penh",
+            optionalData
         );
 
+        const khqr = new BakongKHQR();
         const qrResponse = khqr.generateIndividual(individualInfo);
 
         if (qrResponse && qrResponse.data && qrResponse.data.qr) {
             return res.json({ 
                 success: true, 
                 qrString: qrResponse.data.qr,
-                amount: parseFloat(amount).toFixed(2)
+                amount: totalAmountUSD.toFixed(2)
             });
         } else {
+            console.error("Bakong Error:", qrResponse);
             return res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR Code បានទេ" });
         }
     } catch (error) {
-        console.error("KHQR Error:", error);
+        console.error("Catch Error:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// API ទទួល Slip
+// API ទទួលវិក្កយបត្រ
 app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
     try {
-        const { productName, totalAmount, orderId } = req.body;
+        const { productName, quantity, totalAmount, orderId } = req.body;
         const slipFile = req.file;
+        const qtyNumber = parseInt(quantity) || 1;
 
         orders[orderId] = {
             status: 'pending',
             account: null,
-            productName
+            productName,
+            quantity: qtyNumber
         };
 
         const caption = `🔔 *មានការបញ្ជាទិញថ្មី!*\n\n` +
                         `🆔 *វិក្កយបត្រ:* #${orderId}\n` +
                         `📦 *ប្រភេទ:* ${productName}\n` +
-                        `💰 *តម្លៃ:* $${totalAmount} USD\n` +
-                        `📊 *ស្តុកនៅសល់:* ${accountStock.length}\n\n` +
+                        `🔢 *ចំនួន:* ${qtyNumber} អាខោន\n` +
+                        `💰 *តម្លៃសរុប:* $${totalAmount} USD\n` +
+                        `📊 *ស្តុកនៅសល់:* ${accountStock.length} អាខោន\n\n` +
                         `សូមពិនិត្យវិក្កយបត្រខាងក្រោម ដើម្បី Approve ឱ្យអាខោនធ្លាក់លើអេក្រង់ភ្ញៀវ៖`;
 
         if (slipFile) {
@@ -107,7 +123,7 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
                 reply_markup: {
                     inline_keyboard: [
                         [
-                            { text: '✅ Approve (ទម្លាក់អាខោន)', callback_data: `approve_${orderId}` },
+                            { text: `✅ Approve (ទម្លាក់ ${qtyNumber} អាខោន)`, callback_data: `approve_${orderId}` },
                             { text: '❌ Reject (ច្រានចោល)', callback_data: `reject_${orderId}` }
                         ]
                     ]
@@ -132,18 +148,22 @@ bot.on('callback_query', async (query) => {
     const data = query.data;
     if (data.startsWith('approve_')) {
         const id = data.replace('approve_', '');
+        const order = orders[id];
 
-        if (accountStock.length > 0) {
-            const deliveredAccount = accountStock.shift();
-            if (orders[id]) {
-                orders[id].status = 'approved';
-                orders[id].account = deliveredAccount;
+        if (order) {
+            const neededQty = order.quantity || 1;
+
+            if (accountStock.length >= neededQty) {
+                const deliveredAccounts = accountStock.splice(0, neededQty);
+                order.status = 'approved';
+                order.account = deliveredAccounts.join('\n');
+
+                await bot.answerCallbackQuery(query.id, { text: `Order #${id} ត្រូវបាន Approve!` });
+                await bot.sendMessage(ADMIN_CHAT_ID, `✅ Order #${id} បានទម្លាក់ចំនួន *${neededQty}* អាខោនទៅភ្ញៀវរួចរាល់!\n📦 ស្តុកនៅសល់៖ *${accountStock.length}* អាខោន`, { parse_mode: 'Markdown' });
+            } else {
+                await bot.answerCallbackQuery(query.id, { text: `មិនគ្រប់ស្តុកទេ!` });
+                await bot.sendMessage(ADMIN_CHAT_ID, `⚠️ Order #${id} ត្រូវការ *${neededQty}* អាខោន តែស្តុកនៅសល់ត្រឹម *${accountStock.length}* អាខោនប៉ុណ្ណោះ! សូមផ្ញើ /add បន្ថែម។`, { parse_mode: 'Markdown' });
             }
-            await bot.answerCallbackQuery(query.id, { text: `Order #${id} ត្រូវបាន Approve!` });
-            await bot.sendMessage(ADMIN_CHAT_ID, `✅ Order #${id} បានធ្លាក់អាខោនលើអេក្រង់ភ្ញៀវរួចរាល់!\n📦 ស្តុកនៅសល់៖ ${accountStock.length}`);
-        } else {
-            await bot.answerCallbackQuery(query.id, { text: `អស់ស្តុកហើយ!` });
-            await bot.sendMessage(ADMIN_CHAT_ID, `⚠️ Order #${id} មិនអាច Approve បានទេ ដោយសារអស់ស្តុក! សូមផ្ញើ /add ដើម្បីបញ្ចូលបន្ថែម។`);
         }
     } else if (data.startsWith('reject_')) {
         const id = data.replace('reject_', '');
