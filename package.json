@@ -1,7 +1,7 @@
 {
   "name": "fb-account-store",
   "version": "1.0.0",
-  "description": "Facebook Account Store with Bakong KHQR",
+  "description": "Facebook Account Store with Bakong KHQR and Telegram Bot",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
