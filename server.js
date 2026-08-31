@@ -60,28 +60,38 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត KHQR
+// API បង្កើត KHQR (បានកែសម្រួល Type ត្រឹមត្រូវ)
 app.post('/api/create-khqr', (req, res) => {
     try {
         const { amount, orderId } = req.body;
+
+        const optionalData = {
+            currency: "USD",
+            amount: Number(parseFloat(amount).toFixed(2)),
+            billNumber: String(orderId),
+            storeLabel: "KhmerSMM Store",
+            terminalLabel: "OnlineShop"
+        };
+
         const individualInfo = new IndividualInfo(
             "mon_samnang@bkrt",
             "SAMNANG MON",
             "Phnom Penh",
-            {
-                currency: "USD",
-                amount: parseFloat(amount),
-                billNumber: orderId,
-                storeLabel: "KhmerSMM Store",
-                terminalLabel: "OnlineShop"
-            }
+            optionalData
         );
 
         const khqr = new BakongKHQR();
         const qrResponse = khqr.generateIndividual(individualInfo);
-        res.json({ success: true, qrString: qrResponse.data.qr });
+
+        if (qrResponse && qrResponse.data) {
+            res.json({ success: true, qrString: qrResponse.data.qr });
+        } else {
+            console.error("Bakong error:", qrResponse);
+            res.status(400).json({ success: false, message: "Invalid KHQR Response" });
+        }
     } catch (error) {
-        res.status(500).json({ success: false, message: "មិនអាចបង្កើត KHQR បានទេ" });
+        console.error("KHQR Error:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -98,7 +108,7 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
         };
 
         const caption = `🔔 *មានការបញ្ជាទិញថ្មី!*\n\n` +
-                        `🆔 *លេខវិក្កយបត្រ:* #${orderId}\n` +
+                        `🆔 *វិក្កយបត្រ:* #${orderId}\n` +
                         `📦 *ប្រភេទ:* ${productName}\n` +
                         `💰 *តម្លៃ:* $${totalAmount}\n` +
                         `📊 *ស្តុកនៅសល់:* ${accountStock.length}\n\n` +
@@ -122,6 +132,7 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
+        console.error("Order error:", error);
         res.status(500).json({ success: false });
     }
 });
@@ -159,5 +170,5 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
