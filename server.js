@@ -3,14 +3,14 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { BakongKHQR, IndividualInfo, MerchantInfo } = require('bakong-khqr');
+const { BakongKHQR, MerchantInfo, IndividualInfo } = require('bakong-khqr');
 const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// រៀបចំ Folder សម្រាប់ផ្ទុកវិក្កយបត្របណ្ដោះអាសន្ន
+// បង្កើត folder ផ្ទុក Slip បណ្ដោះអាសន្ន
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
@@ -21,12 +21,12 @@ const upload = multer({ dest: 'uploads/' });
 let accountStock = [];
 let orders = {};
 
-// កំណត់ Telegram Bot
+// Telegram Bot
 const BOT_TOKEN = '8917816041:AAEAxBlMIg6auHX6WrcO_HudfFLTQT7sLXQ';
 const ADMIN_CHAT_ID = '5915683588';
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-// --- គ្រប់គ្រងស្តុកតាមរយៈ TELEGRAM BOT ---
+// --- គ្រប់គ្រងស្តុកតាម TELEGRAM BOT ---
 
 // បន្ថែមអាខោនតាមពាក្យបញ្ជា /add
 bot.onText(/\/add([\s\S]*)/, async (msg, match) => {
@@ -55,53 +55,43 @@ bot.onText(/\/stock/, async (msg) => {
 
 // --- API SERVER ---
 
-// បង្ហាញ index.html
+// បង្ហាញទំព័រមុខ index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត KHQR (កែសម្រួលលែងឱ្យ Error)
+// API បង្កើត KHQR ជាប្រាក់ដុល្លារ (USD)
 app.post('/api/create-khqr', (req, res) => {
     try {
         const { amount, orderId } = req.body;
         const khqr = new BakongKHQR();
-        const cleanBillNo = "INV" + String(orderId).replace(/\D/g, '').slice(-8);
+        const priceUSD = parseFloat(amount);
+        const billNo = "INV" + String(orderId).replace(/\D/g, '').slice(-8);
 
-        // សាកល្បងបង្កើតតាមទម្រង់ Merchant (មាន Amount & Currency)
-        try {
-            const merchantInfo = new MerchantInfo(
-                "mon_samnang@bkrt",
-                "SAMNANG MON",
-                "Phnom Penh",
-                cleanBillNo,
-                "KhmerSMM Store",
-                {
-                    currency: "USD",
-                    amount: parseFloat(amount),
-                    terminalLabel: "OnlineShop"
-                }
-            );
-
-            const qrResponse = khqr.generateMerchant(merchantInfo);
-            if (qrResponse && qrResponse.data && qrResponse.data.qr) {
-                return res.json({ success: true, qrString: qrResponse.data.qr });
-            }
-        } catch (merchantErr) {
-            console.log("Merchant KHQR fallback to Individual...");
-        }
-
-        // ប្រសិនបើបង្កើតតាម Merchant មិនចេញ វានឹងប្រើទម្រង់ Individual ដោយស្វ័យប្រវត្តិ
-        const individualInfo = new IndividualInfo(
+        // បង្កើត Dynamic QR កំណត់តម្លៃ Amount និង Currency ជា USD
+        const merchantInfo = new MerchantInfo(
             "mon_samnang@bkrt",
             "SAMNANG MON",
-            "Phnom Penh"
+            "Phnom Penh",
+            billNo,
+            "KhmerSMM Store",
+            {
+                currency: "USD",
+                amount: priceUSD,
+                terminalLabel: "OnlineShop"
+            }
         );
-        const qrResponse = khqr.generateIndividual(individualInfo);
+
+        const qrResponse = khqr.generateMerchant(merchantInfo);
 
         if (qrResponse && qrResponse.data && qrResponse.data.qr) {
-            return res.json({ success: true, qrString: qrResponse.data.qr });
+            return res.json({ 
+                success: true, 
+                qrString: qrResponse.data.qr,
+                amount: priceUSD
+            });
         } else {
-            return res.status(400).json({ success: false, message: "Failed to generate QR" });
+            res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR USD បានទេ" });
         }
     } catch (error) {
         console.error("KHQR Error:", error);
@@ -109,7 +99,7 @@ app.post('/api/create-khqr', (req, res) => {
     }
 });
 
-// API ទទួល Slip និងរក្សាទុក Order
+// API ទទួល Slip និងផ្ញើទៅ Telegram
 app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
     try {
         const { productName, totalAmount, orderId } = req.body;
@@ -124,7 +114,7 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
         const caption = `🔔 *មានការបញ្ជាទិញថ្មី!*\n\n` +
                         `🆔 *វិក្កយបត្រ:* #${orderId}\n` +
                         `📦 *ប្រភេទ:* ${productName}\n` +
-                        `💰 *តម្លៃ:* $${totalAmount}\n` +
+                        `💰 *តម្លៃ:* $${totalAmount} USD\n` +
                         `📊 *ស្តុកនៅសល់:* ${accountStock.length}\n\n` +
                         `សូមពិនិត្យវិក្កយបត្រខាងក្រោម ដើម្បី Approve ឱ្យអាខោនធ្លាក់លើអេក្រង់ភ្ញៀវ៖`;
 
@@ -151,14 +141,14 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
     }
 });
 
-// API ឱ្យ Frontend ឆែកមើលថាតើ Admin Approve ឬនៅ
+// API ឱ្យ Frontend ឆែកស្ថានភាព Order
 app.get('/api/check-order/:orderId', (req, res) => {
     const order = orders[req.params.orderId];
     if (!order) return res.status(404).json({ status: 'not_found' });
     res.json({ status: order.status, account: order.account });
 });
 
-// Telegram Action ពេលចុច Approve / Reject
+// ចាប់សកម្មភាពប៊ូតុងលើ Telegram
 bot.on('callback_query', async (query) => {
     const data = query.data;
     if (data.startsWith('approve_')) {
