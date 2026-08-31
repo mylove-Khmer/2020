@@ -3,7 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { BakongKHQR, khqrData, IndividualInfo } = require('bakong-khqr');
+const { BakongKHQR, IndividualInfo } = require('bakong-khqr');
 const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
@@ -52,53 +52,44 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// API បង្កើត KHQR ជាប្រាក់ដុល្លារ USD ភ្ជាប់ Amount ស្វ័យប្រវត្តិតាមស្តង់ដារ Bakong
+// API បង្កើត KHQR ត្រឹមត្រូវ (USD)
 app.post('/api/create-khqr', (req, res) => {
     try {
-        const { amount, orderId } = req.body;
-        const totalAmountUSD = parseFloat(amount);
+        const { amount } = req.body;
+        const khqr = new BakongKHQR();
 
-        const optionalData = {
-            currency: khqrData.currency.usd, // កំណត់ឱ្យចេញលុយដុល្លារ USD
-            amount: totalAmountUSD,          // ភ្ជាប់តម្លៃលុយដុល្លារដែលត្រូវបង់
-            billNumber: String(orderId),
-            storeLabel: "KhmerSMM Store",
-            terminalLabel: "OnlineShop"
-        };
-
-        // ទម្រង់ស្តង់ដារផ្លូវការរបស់ Bakong Individual KHQR
         const individualInfo = new IndividualInfo(
             "mon_samnang@bkrt",
-            khqrData.currency.usd,
             "SAMNANG MON",
             "Phnom Penh",
-            optionalData
+            {
+                currency: "USD"
+            }
         );
 
-        const khqr = new BakongKHQR();
         const qrResponse = khqr.generateIndividual(individualInfo);
 
         if (qrResponse && qrResponse.data && qrResponse.data.qr) {
             return res.json({ 
                 success: true, 
                 qrString: qrResponse.data.qr,
-                amount: totalAmountUSD.toFixed(2)
+                amount: parseFloat(amount).toFixed(2)
             });
         } else {
-            console.error("Bakong Error:", qrResponse);
             return res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR Code បានទេ" });
         }
     } catch (error) {
-        console.error("Catch Error:", error);
+        console.error("KHQR Error:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// API ទទួលវិក្កយបត្រ
+// API ទទួល Slip និង Order
 app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
     try {
         const { productName, quantity, totalAmount, orderId } = req.body;
         const slipFile = req.file;
+
         const qtyNumber = parseInt(quantity) || 1;
 
         orders[orderId] = {
@@ -134,6 +125,7 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false });
     }
 });
