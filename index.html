@@ -22,8 +22,8 @@
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-2">ជ្រើសរើសប្រភេទអាខោន៖</label>
                     <select id="productSelect" class="w-full border border-slate-300 rounded-lg p-3 text-slate-700 focus:outline-none focus:border-blue-500">
-                        <option value="0.50" data-name="Facebook Clone ខ្មែរ">Facebook Clone ខ្មែរ ($0.50)</option>
                         <option value="1.50" data-name="Facebook Via Cambodia + 2FA">Facebook Via Cambodia + 2FA ($1.50)</option>
+                        <option value="0.50" data-name="Facebook Clone ខ្មែរ">Facebook Clone ខ្មែរ ($0.50)</option>
                         <option value="2.00" data-name="Facebook Via USA + 2FA">Facebook Via USA + 2FA ($2.00)</option>
                     </select>
                 </div>
@@ -39,11 +39,19 @@
                 </button>
             </div>
 
-            <!-- កន្លែងបង្ហាញ QR & Upload Slip -->
+            <!-- កន្លែងបង្ហាញ QR & តម្លៃជា USD -->
             <div id="paymentSection" class="hidden border-t border-slate-200 pt-6 text-center space-y-4">
                 <div class="inline-block p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
                     <p class="text-xs text-slate-500 font-semibold mb-2">ស្កេនទូទាត់ប្រាក់តាម Bakong KHQR</p>
+                    
                     <div id="qrcode" class="flex justify-center"></div>
+
+                    <!-- បង្ហាញតម្លៃជាដុល្លារ ($) -->
+                    <div class="mt-3 bg-blue-50 py-2 px-4 rounded-lg border border-blue-200">
+                        <span class="text-xs text-slate-500 font-medium">ចំនួនទឹកប្រាក់ត្រូវបង់៖</span>
+                        <p id="qrAmountDisplay" class="text-xl font-extrabold text-blue-600">$0.00 USD</p>
+                    </div>
+
                     <p class="text-xs text-slate-400 mt-2 font-mono">SAMNANG MON</p>
                 </div>
 
@@ -79,41 +87,35 @@
     <script>
         const BACKEND_URL = '';
         let currentOrderId = '';
+        let currentPrice = '';
         let pollTimer = null;
 
         async function requestQR() {
-            const price = document.getElementById('productSelect').value;
-            currentOrderId = 'ORD' + Math.floor(100000 + Math.random() * 900000);
-
-            document.getElementById('btnPay').innerText = "កំពុងរៀបចំ QR Code...";
-            document.getElementById('btnPay').disabled = true;
+            currentPrice = document.getElementById('productSelect').value;
+            currentOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/create-khqr`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: price, orderId: currentOrderId })
+                    body: JSON.stringify({ amount: currentPrice, orderId: currentOrderId })
                 });
                 const data = await res.json();
 
-                if (data.success && data.qrString) {
+                if (data.success) {
                     document.getElementById('qrcode').innerHTML = "";
-                    new QRCode(document.getElementById("qrcode"), { 
-                        text: data.qrString, 
-                        width: 190, 
-                        height: 190 
-                    });
+                    new QRCode(document.getElementById("qrcode"), { text: data.qrString, width: 180, height: 180 });
+                    
+                    // បង្ហាញចំនួនទឹកប្រាក់ជាដុល្លារ
+                    document.getElementById('qrAmountDisplay').innerText = `$${parseFloat(currentPrice).toFixed(2)} USD`;
+
                     document.getElementById('buyForm').classList.add('hidden');
                     document.getElementById('paymentSection').classList.remove('hidden');
                 } else {
                     alert("មានបញ្ហាក្នុងការបង្កើត QR Code!");
-                    document.getElementById('btnPay').disabled = false;
-                    document.getElementById('btnPay').innerText = "បន្តទៅការទូទាត់ (KHQR)";
                 }
             } catch (err) {
                 alert("មិនអាចភ្ជាប់ទៅកាន់ Server បានទេ!");
-                document.getElementById('btnPay').disabled = false;
-                document.getElementById('btnPay').innerText = "បន្តទៅការទូទាត់ (KHQR)";
             }
         }
 
@@ -125,7 +127,7 @@
             const formData = new FormData();
             formData.append('orderId', currentOrderId);
             formData.append('productName', selectEl.options[selectEl.selectedIndex].getAttribute('data-name'));
-            formData.append('totalAmount', selectEl.value);
+            formData.append('totalAmount', currentPrice);
             formData.append('slip', slipInput.files[0]);
 
             document.getElementById('btnSubmit').innerText = "កំពុងបញ្ជូន...";
