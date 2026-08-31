@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         .khqr-card {
-            width: 290px;
+            width: 280px;
             background: #ffffff;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.12);
@@ -18,22 +18,31 @@
         }
         .khqr-header {
             background-color: #D61B23;
-            padding: 14px 16px;
+            padding: 12px 16px;
             display: flex;
             justify-content: center;
             align-items: center;
         }
+        .item-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .item-card.active {
+            border-color: #dc2626;
+            background-color: #fef2f2;
+            box-shadow: 0 0 0 2px #dc2626;
+        }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen py-10 px-4">
+<body class="bg-slate-100 min-h-screen py-4 px-3 sm:py-8">
 
     <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         <!-- Header -->
-        <div class="bg-slate-900 p-5 text-white">
+        <div class="bg-slate-900 px-4 py-4 text-white">
             <div class="flex justify-between items-center">
                 <div>
-                    <h1 class="text-xl font-bold tracking-wide">ហាងលក់អាខោន FB</h1>
-                    <p class="text-slate-400 text-xs mt-0.5">ប្រព័ន្ធស្វ័យប្រវត្តិ ២៤ម៉ោង</p>
+                    <h1 class="text-lg font-bold tracking-wide">ហាងលក់អាខោន FB</h1>
+                    <p class="text-slate-400 text-[11px] mt-0.5">ប្រព័ន្ធស្វ័យប្រវត្តិ ២៤ម៉ោង</p>
                 </div>
                 <!-- បង្ហាញព័ត៌មានអ្នក Login -->
                 <div id="userProfile" class="hidden text-right">
@@ -43,11 +52,11 @@
             </div>
         </div>
 
-        <div class="p-6 space-y-5">
+        <div class="p-4 sm:p-5 space-y-4">
 
             <!-- ផ្ទាំង Login / Register -->
             <div id="authSection" class="space-y-4">
-                <div class="flex border-b border-slate-200 mb-4">
+                <div class="flex border-b border-slate-200 mb-3">
                     <button id="tabLogin" onclick="switchAuthTab('login')" class="w-1/2 py-2 text-center font-bold text-sm text-red-600 border-b-2 border-red-600">ចូលប្រើប្រាស់</button>
                     <button id="tabRegister" onclick="switchAuthTab('register')" class="w-1/2 py-2 text-center font-bold text-sm text-slate-500 hover:text-slate-700">ចុះឈ្មោះគណនី</button>
                 </div>
@@ -87,95 +96,153 @@
                 </form>
             </div>
 
-            <!-- Form ជ្រើសរើសទំនិញ និងចំនួន (បង្ហាញតែពេល Login រួច) -->
+            <!-- Form ជ្រើសរើសទំនិញ និងចំនួន (ទម្រង់ថ្មីស្រួលមើលលើទូរស័ព្ទ) -->
             <div id="buyForm" class="hidden space-y-4">
+                
+                <!-- ប៊ូតុងជ្រើសរើសប្រទេស -->
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">ជ្រើសរើសប្រភេទអាខោន៖</label>
-                    <select id="productSelect" onchange="calculateTotal()" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm text-slate-700 focus:outline-none focus:border-red-500">
-                        <optgroup label="🇰🇭 Facebook ខ្មែរ">
-                            <option value="0.50" data-name="Facebook ខ្មែរ + ឆ្នាំ2025">Facebook ខ្មែរ + ឆ្នាំ2025 ($0.50)</option>
-                            <option value="1.00" data-name="Facebook ខ្មែរ + ឆ្នាំ2023">Facebook ខ្មែរ + ឆ្នាំ2023 ($1.00)</option>
-                            <option value="3.50" data-name="Facebook ខ្មែរ + ឆ្នាំ2020">Facebook ខ្មែរ + ឆ្នាំ2020 ($3.50)</option>
-                            <option value="5.00" data-name="Facebook ខ្មែរ + ឆ្នាំ2018">Facebook ខ្មែរ + ឆ្នាំ2018 ($5.00)</option>
-                            <option value="7.00" data-name="Facebook ខ្មែរ + ឆ្នាំ2015">Facebook ខ្មែរ + ឆ្នាំ2015 ($7.00)</option>
-                            <option value="9.00" data-name="Facebook ខ្មែរ + ឆ្នាំ2010">Facebook ខ្មែរ + ឆ្នាំ2010 ($9.00)</option>
-                        </optgroup>
-                        <optgroup label="🇺🇸 Facebook USA">
-                            <option value="1.00" data-name="Facebook USA + ឆ្នាំ2025">Facebook USA + ឆ្នាំ2025 ($1.00)</option>
-                            <option value="2.00" data-name="Facebook USA + ឆ្នាំ2023">Facebook USA + ឆ្នាំ2023 ($2.00)</option>
-                            <option value="4.00" data-name="Facebook USA + ឆ្នាំ2020">Facebook USA + ឆ្នាំ2020 ($4.00)</option>
-                            <option value="6.00" data-name="Facebook USA + ឆ្នាំ2018">Facebook USA + ឆ្នាំ2018 ($6.00)</option>
-                            <option value="8.00" data-name="Facebook USA + ឆ្នាំ2015">Facebook USA + ឆ្នាំ2015 ($8.00)</option>
-                            <option value="15.00" data-name="Facebook USA + ឆ្នាំ2010">Facebook USA + ឆ្នាំ2010 ($15.00)</option>
-                        </optgroup>
-                    </select>
+                    <label class="block text-xs font-semibold text-slate-700 mb-2">ជ្រើសរើសប្រទេស៖</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="btnTabKhmer" onclick="switchCountry('khmer')" class="py-2 text-xs sm:text-sm font-bold rounded-lg border-2 border-red-600 bg-red-50 text-red-600 transition">
+                            🇰🇭 FB ខ្មែរ
+                        </button>
+                        <button type="button" id="btnTabUSA" onclick="switchCountry('usa')" class="py-2 text-xs sm:text-sm font-bold rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 transition">
+                            🇺🇸 FB USA
+                        </button>
+                    </div>
                 </div>
 
+                <!-- បញ្ជីអាខោនតាមឆ្នាំ (បង្ហាញជា Grid ២ ជួរតូចល្មម) -->
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">ចំនួនអាខោនចង់ទិញ៖</label>
-                    <input type="number" id="qtyInput" min="1" max="500" value="1" oninput="calculateTotal()" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-red-500">
+                    <label class="block text-xs font-semibold text-slate-700 mb-2">ជ្រើសរើសឆ្នាំអាខោន៖</label>
+                    
+                    <!-- បញ្ជី FB ខ្មែរ -->
+                    <div id="gridKhmer" class="grid grid-cols-2 gap-2 text-left">
+                        <div onclick="selectItem('Facebook ខ្មែរ + ឆ្នាំ2025', 0.50, this)" class="item-card active p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2025</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$0.50</div>
+                        </div>
+                        <div onclick="selectItem('Facebook ខ្មែរ + ឆ្នាំ2023', 1.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2023</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$1.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook ខ្មែរ + ឆ្នាំ2020', 3.50, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2020</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$3.50</div>
+                        </div>
+                        <div onclick="selectItem('Facebook ខ្មែរ + ឆ្នាំ2018', 5.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2018</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$5.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook ខ្មែរ + ឆ្នាំ2015', 7.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2015</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$7.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook ខ្មែរ + ឆ្នាំ2010', 9.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2010</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$9.00</div>
+                        </div>
+                    </div>
+
+                    <!-- បញ្ជី FB USA (លាក់សិន) -->
+                    <div id="gridUSA" class="grid grid-cols-2 gap-2 text-left hidden">
+                        <div onclick="selectItem('Facebook USA + ឆ្នាំ2025', 1.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2025</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$1.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook USA + ឆ្នាំ2023', 2.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2023</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$2.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook USA + ឆ្នាំ2020', 4.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2020</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$4.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook USA + ឆ្នាំ2018', 6.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2018</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$6.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook USA + ឆ្នាំ2015', 8.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2015</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$8.00</div>
+                        </div>
+                        <div onclick="selectItem('Facebook USA + ឆ្នាំ2010', 15.00, this)" class="item-card p-2.5 border border-slate-200 rounded-lg bg-white">
+                            <div class="font-bold text-xs text-slate-800">ឆ្នាំ 2010</div>
+                            <div class="text-[11px] text-red-600 font-semibold">$15.00</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="p-3 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
-                    <span class="text-xs text-red-700 font-semibold">តម្លៃសរុបត្រូវបង់៖</span>
-                    <span id="totalDisplay" class="text-lg font-black text-red-600">$0.50 USD</span>
+                <!-- ចំនួនអាខោន -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">ចំនួនអាខោនចង់ទិញ៖</label>
+                    <input type="number" id="qtyInput" min="1" max="500" value="1" oninput="calculateTotal()" class="w-full border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-800 focus:outline-none focus:border-red-500">
                 </div>
 
-                <button type="button" id="btnPay" onclick="requestQR()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">
+                <!-- បង្ហាញសរុប -->
+                <div class="p-2.5 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
+                    <div>
+                        <span class="text-[11px] text-slate-500 block" id="selectedItemLabel">Facebook ខ្មែរ + ឆ្នាំ2025</span>
+                        <span class="text-xs text-red-700 font-semibold">តម្លៃសរុបត្រូវបង់៖</span>
+                    </div>
+                    <span id="totalDisplay" class="text-base font-black text-red-600">$0.50 USD</span>
+                </div>
+
+                <button type="button" id="btnPay" onclick="requestQR()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg text-sm transition duration-200 shadow-md">
                     បន្តទៅការទូទាត់ (KHQR)
                 </button>
             </div>
 
             <!-- ផ្ទាំង KHQR CARD -->
-            <div id="paymentSection" class="hidden border-t border-slate-200 pt-4 space-y-4">
+            <div id="paymentSection" class="hidden border-t border-slate-200 pt-3 space-y-3">
                 <div class="khqr-card text-left">
                     <div class="khqr-header">
-                        <svg class="h-6 text-white fill-current" viewBox="0 0 100 24">
+                        <svg class="h-5 text-white fill-current" viewBox="0 0 100 24">
                             <text x="50%" y="18" font-size="20" font-weight="900" font-family="Arial, sans-serif" text-anchor="middle" fill="#ffffff" letter-spacing="3">KHQR</text>
                         </svg>
                     </div>
 
-                    <div class="p-4 bg-white">
-                        <h2 class="text-slate-800 font-semibold text-base leading-tight">លក់អាខោន</h2>
-                        <div class="mt-1">
-                            <span id="cardAmount" class="text-xl font-bold text-slate-900 tracking-tight">0.00</span>
-                            <span class="text-xs font-semibold text-slate-500 ml-1 tracking-wider">USD</span>
+                    <div class="p-3 bg-white">
+                        <h2 class="text-slate-800 font-semibold text-sm leading-tight">លក់អាខោន</h2>
+                        <div class="mt-0.5">
+                            <span id="cardAmount" class="text-lg font-bold text-slate-900 tracking-tight">0.00</span>
+                            <span class="text-[11px] font-semibold text-slate-500 ml-1 tracking-wider">USD</span>
                         </div>
                     </div>
 
                     <div class="border-b border-dashed border-slate-300 w-full"></div>
 
-                    <div class="p-5 flex justify-center bg-white">
+                    <div class="p-4 flex justify-center bg-white">
                         <div id="qrcode"></div>
                     </div>
                 </div>
 
                 <!-- កន្លែង Upload Slip -->
-                <div class="text-left max-w-[290px] mx-auto space-y-3">
+                <div class="text-left max-w-[280px] mx-auto space-y-2">
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1">Upload Slip បង់ប្រាក់រួច៖</label>
-                        <input type="file" id="slipInput" accept="image/*" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 border border-slate-200 rounded-lg p-1">
+                        <input type="file" id="slipInput" accept="image/*" class="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 border border-slate-200 rounded-lg p-1">
                     </div>
 
-                    <button type="button" id="btnSubmit" onclick="submitOrder()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition duration-200 shadow-md text-sm">
+                    <button type="button" id="btnSubmit" onclick="submitOrder()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg transition duration-200 shadow-md text-xs">
                         ផ្ញើវិក្កយបត្រ
                     </button>
                 </div>
             </div>
 
             <!-- កន្លែងរង់ចាំ -->
-            <div id="waitingSection" class="hidden text-center p-6 bg-amber-50 border border-amber-200 rounded-xl space-y-3">
-                <div class="animate-spin inline-block w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full"></div>
-                <h3 class="font-bold text-amber-800">កំពុងរង់ចាំ Admin ពិនិត្យវិក្កយបត្រ...</h3>
-                <p class="text-xs text-amber-600">សូមកុំទាន់បិទទំព័រនេះ អាខោនទាំងអស់នឹងបង្ហាញនៅទីនេះភ្លាមៗក្រោយការអនុម័ត។</p>
+            <div id="waitingSection" class="hidden text-center p-5 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                <div class="animate-spin inline-block w-6 h-6 border-3 border-amber-500 border-t-transparent rounded-full"></div>
+                <h3 class="font-bold text-xs text-amber-800">កំពុងរង់ចាំ Admin ពិនិត្យវិក្កយបត្រ...</h3>
+                <p class="text-[11px] text-amber-600">សូមកុំទាន់បិទទំព័រនេះ អាខោននឹងបង្ហាញនៅទីនេះភ្លាមៗក្រោយការអនុម័ត។</p>
             </div>
 
             <!-- កន្លែងបង្ហាញអាខោនពេលទិញជោគជ័យ -->
-            <div id="resultSection" class="hidden bg-emerald-50 border border-emerald-300 p-5 rounded-xl space-y-3">
-                <h3 class="text-lg font-bold text-emerald-800 text-center">🎉 ការទិញបានជោគជ័យ!</h3>
+            <div id="resultSection" class="hidden bg-emerald-50 border border-emerald-300 p-4 rounded-xl space-y-3">
+                <h3 class="text-base font-bold text-emerald-800 text-center">🎉 ការទិញបានជោគជ័យ!</h3>
                 <p class="text-xs text-slate-600 font-semibold">បញ្ជីអាខោនរបស់អ្នក៖</p>
-                <textarea id="accountResult" readonly class="w-full p-3 font-mono text-xs bg-white border border-emerald-300 rounded-lg h-36 text-slate-800"></textarea>
-                <button onclick="copyAccount()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition duration-200">
+                <textarea id="accountResult" readonly class="w-full p-2.5 font-mono text-xs bg-white border border-emerald-300 rounded-lg h-32 text-slate-800"></textarea>
+                <button onclick="copyAccount()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs transition duration-200">
                     Copy អាខោនទាំងអស់
                 </button>
             </div>
@@ -186,6 +253,8 @@
         const BACKEND_URL = '';
         let currentUser = localStorage.getItem('fb_store_user') || null;
         let currentOrderId = '';
+        let selectedProductName = 'Facebook ខ្មែរ + ឆ្នាំ2025';
+        let currentUnitPrice = 0.50;
         let calculatedTotal = 0.50;
         let selectedQty = 1;
         let pollTimer = null;
@@ -209,6 +278,46 @@
                 document.getElementById('tabRegister').className = "w-1/2 py-2 text-center font-bold text-sm text-red-600 border-b-2 border-red-600";
                 document.getElementById('tabLogin').className = "w-1/2 py-2 text-center font-bold text-sm text-slate-500 hover:text-slate-700";
             }
+        }
+
+        function switchCountry(country) {
+            const btnKh = document.getElementById('btnTabKhmer');
+            const btnUs = document.getElementById('btnTabUSA');
+            const gridKh = document.getElementById('gridKhmer');
+            const gridUs = document.getElementById('gridUSA');
+
+            if (country === 'khmer') {
+                btnKh.className = "py-2 text-xs sm:text-sm font-bold rounded-lg border-2 border-red-600 bg-red-50 text-red-600 transition";
+                btnUs.className = "py-2 text-xs sm:text-sm font-bold rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 transition";
+                gridKh.classList.remove('hidden');
+                gridUs.classList.add('hidden');
+                // ជ្រើសរើស item ដំបូងរបស់ខ្មែរ
+                selectItem('Facebook ខ្មែរ + ឆ្នាំ2025', 0.50, gridKh.children[0]);
+            } else {
+                btnUs.className = "py-2 text-xs sm:text-sm font-bold rounded-lg border-2 border-red-600 bg-red-50 text-red-600 transition";
+                btnKh.className = "py-2 text-xs sm:text-sm font-bold rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 transition";
+                gridUs.classList.remove('hidden');
+                gridKh.classList.add('hidden');
+                // ជ្រើសរើស item ដំបូងរបស់ USA
+                selectItem('Facebook USA + ឆ្នាំ2025', 1.00, gridUs.children[0]);
+            }
+        }
+
+        function selectItem(name, price, element) {
+            document.querySelectorAll('.item-card').forEach(el => el.classList.remove('active'));
+            if (element) element.classList.add('active');
+            selectedProductName = name;
+            currentUnitPrice = price;
+            document.getElementById('selectedItemLabel').innerText = name;
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            let qty = parseInt(document.getElementById('qtyInput').value);
+            if (isNaN(qty) || qty < 1) qty = 1;
+            selectedQty = qty;
+            calculatedTotal = (currentUnitPrice * qty).toFixed(2);
+            document.getElementById('totalDisplay').innerText = `$${calculatedTotal} USD`;
         }
 
         async function handleRegister(e) {
@@ -273,15 +382,6 @@
             location.reload();
         }
 
-        function calculateTotal() {
-            const unitPrice = parseFloat(document.getElementById('productSelect').value);
-            let qty = parseInt(document.getElementById('qtyInput').value);
-            if (isNaN(qty) || qty < 1) qty = 1;
-            selectedQty = qty;
-            calculatedTotal = (unitPrice * qty).toFixed(2);
-            document.getElementById('totalDisplay').innerText = `$${calculatedTotal} USD`;
-        }
-
         async function requestQR() {
             calculateTotal();
             currentOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
@@ -302,8 +402,8 @@
                     document.getElementById('qrcode').innerHTML = "";
                     new QRCode(document.getElementById("qrcode"), { 
                         text: data.qrString, 
-                        width: 220, 
-                        height: 220
+                        width: 200, 
+                        height: 200
                     });
                     
                     document.getElementById('cardAmount').innerText = calculatedTotal;
@@ -326,11 +426,10 @@
             const slipInput = document.getElementById('slipInput');
             if (!slipInput.files[0]) return alert("សូមជ្រើសរើសរូប Slip!");
 
-            const selectEl = document.getElementById('productSelect');
             const formData = new FormData();
             formData.append('orderId', currentOrderId);
             formData.append('buyerUsername', currentUser || 'ភ្ញៀវ');
-            formData.append('productName', selectEl.options[selectEl.selectedIndex].getAttribute('data-name'));
+            formData.append('productName', selectedProductName);
             formData.append('quantity', selectedQty);
             formData.append('totalAmount', calculatedTotal);
             formData.append('slip', slipInput.files[0]);
