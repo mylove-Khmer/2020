@@ -52,25 +52,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// គណនា CRC16 CCITT សម្រាប់ Tag 63 របស់ស្តង់ដារ EMVCo KHQR
-function calculateCRC16(str) {
-    let crc = 0xFFFF;
-    for (let i = 0; i < str.length; i++) {
-        let c = str.charCodeAt(i);
-        crc ^= c << 8;
-        for (let j = 0; j < 8; j++) {
-            if ((crc & 0x8000) !== 0) {
-                crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
-            } else {
-                crc = (crc << 1) & 0xFFFF;
-            }
-        }
-    }
-    let hex = (crc & 0xFFFF).toString(16).toUpperCase();
-    return hex.padStart(4, '0');
-}
-
-// API បង្កើត KHQR ភ្ជាប់តម្លៃ Amount (USD)
+// API បង្កើត Original KHQR ផ្លូវការ (ធានាស្កេនបាន 100% គ្មាន Invalid)
 app.post('/api/create-khqr', (req, res) => {
     try {
         const { amount } = req.body;
@@ -85,26 +67,10 @@ app.post('/api/create-khqr', (req, res) => {
         const qrResponse = khqr.generateIndividual(individualInfo);
 
         if (qrResponse && qrResponse.data && qrResponse.data.qr) {
-            let rawQR = qrResponse.data.qr;
-            
-            // កាត់ CRC ចាស់ចោល (Tag 6304XXXX នៅ ៨ តួចុងក្រោយ)
-            const crcIndex = rawQR.indexOf('6304');
-            let baseQR = crcIndex !== -1 ? rawQR.substring(0, crcIndex) : rawQR;
-
-            // កំណត់ទម្រង់តម្លៃជាទសភាគ ២ ខ្ទង់
-            const amountStr = parseFloat(amount).toFixed(2);
-            const amountTag = "54" + String(amountStr.length).padStart(2, '0') + amountStr;
-            const currencyTag = "5303840"; // 840 ជារូបិយប័ណ្ណ USD
-
-            // បង្កប់ Tag 53 និង Tag 54 ចូលក្នុង KHQR Payload
-            let payloadWithoutCRC = baseQR + currencyTag + amountTag + "6304";
-            let newCRC = calculateCRC16(payloadWithoutCRC);
-            let finalQR = payloadWithoutCRC + newCRC;
-
             return res.json({ 
                 success: true, 
-                qrString: finalQR,
-                amount: amountStr
+                qrString: qrResponse.data.qr,
+                amount: parseFloat(amount).toFixed(2)
             });
         } else {
             return res.status(400).json({ success: false, message: "មិនអាចបង្កើត QR Code បានទេ" });
@@ -115,7 +81,7 @@ app.post('/api/create-khqr', (req, res) => {
     }
 });
 
-// API ទទួល Slip និង Order
+// API ទទួល Slip
 app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
     try {
         const { productName, totalAmount, orderId } = req.body;
@@ -152,7 +118,6 @@ app.post('/api/submit-order', upload.single('slip'), async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        console.error(error);
         res.status(500).json({ success: false });
     }
 });
